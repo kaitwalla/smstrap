@@ -55,8 +55,10 @@ jobs:
           cd release
           if [ "${{ matrix.goos }}" == "windows" ]; then
             zip SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.zip ${{ matrix.binary_name }}
+            rm ${{ matrix.binary_name }}
           else
             tar czf SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ${{ matrix.binary_name }}
+            rm ${{ matrix.binary_name }}
           fi
 
       - name: Upload artifact
