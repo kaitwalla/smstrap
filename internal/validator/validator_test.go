@@ -30,7 +30,7 @@ func TestValidateMessageRequest_MissingFrom(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-token")
 
 	msgReq := &MessageRequest{
-		To:                 "+1234567890",
+		ToRaw:              "+1234567890",
 		Text:               "Hello",
 		MessagingProfileID: "profile-123",
 	}
@@ -59,6 +59,7 @@ func TestValidateMessageRequest_MissingTo(t *testing.T) {
 		From:               "+1234567890",
 		Text:               "Hello",
 		MessagingProfileID: "profile-123",
+		// ToRaw is nil - missing 'to' field
 	}
 
 	statusCode, errResp := ValidateMessageRequest(req, msgReq)
@@ -79,9 +80,9 @@ func TestValidateMessageRequest_MissingMessagingProfileID(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-token")
 
 	msgReq := &MessageRequest{
-		From: "+1234567890",
-		To:   "+0987654321",
-		Text: "Hello",
+		From:  "+1234567890",
+		ToRaw: "+0987654321",
+		Text:  "Hello",
 	}
 
 	statusCode, errResp := ValidateMessageRequest(req, msgReq)
@@ -106,7 +107,7 @@ func TestValidateMessageRequest_MissingTextAndMediaURLs(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		MessagingProfileID: "profile-123",
 	}
 
@@ -129,7 +130,7 @@ func TestValidateMessageRequest_MissingAuthHeader(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		Text:               "Hello",
 		MessagingProfileID: "profile-123",
 	}
@@ -156,7 +157,7 @@ func TestValidateMessageRequest_InvalidAuthToken(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		Text:               "Hello",
 		MessagingProfileID: "profile-123",
 	}
@@ -180,7 +181,7 @@ func TestValidateMessageRequest_ValidRequest(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		Text:               "Hello, World!",
 		MessagingProfileID: "profile-123",
 	}
@@ -204,7 +205,7 @@ func TestValidateMessageRequest_WithMediaURLsNoText(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		MediaURLs:          []string{"https://example.com/image.jpg"},
 		MessagingProfileID: "profile-123",
 	}
@@ -229,7 +230,7 @@ func TestValidateMessageRequest_WithBothTextAndMediaURLs(t *testing.T) {
 
 	msgReq := &MessageRequest{
 		From:               "+1234567890",
-		To:                 "+0987654321",
+		ToRaw:              "+0987654321",
 		Text:               "Check out this image!",
 		MediaURLs:          []string{"https://example.com/image.jpg"},
 		MessagingProfileID: "profile-123",
@@ -243,5 +244,36 @@ func TestValidateMessageRequest_WithBothTextAndMediaURLs(t *testing.T) {
 	}
 	if errResp != nil {
 		t.Errorf("Expected no error response, got %+v", errResp)
+	}
+}
+
+func TestValidateMessageRequest_ToAsArray(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/messages", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	// Telnyx PHP SDK may send 'to' as an array
+	msgReq := &MessageRequest{
+		From:               "+1234567890",
+		ToRaw:              []interface{}{"+0987654321"},
+		Text:               "Hello",
+		MessagingProfileID: "profile-123",
+	}
+
+	statusCode, errResp := ValidateMessageRequest(req, msgReq)
+
+	// Should be valid - array format should work
+	if statusCode != 0 {
+		t.Errorf("Expected status 0 (valid), got %d", statusCode)
+	}
+	if errResp != nil {
+		t.Errorf("Expected no error response, got %+v", errResp)
+	}
+
+	// Verify NormalizeTo extracts the phone number
+	if msgReq.To != "+0987654321" {
+		t.Errorf("Expected To to be normalized to '+0987654321', got '%s'", msgReq.To)
 	}
 }

@@ -3,7 +3,7 @@ package validator
 import (
 	"encoding/json"
 	"net/http"
-	
+
 	"telnyx-mock/internal/database"
 )
 
@@ -21,24 +21,56 @@ type TelnyxErrorResponse struct {
 
 // MessageRequest represents the incoming message request payload
 // Matches Telnyx API v2/messages request format
+// Note: Telnyx accepts "to" as either a string "+1234567890" or an array ["+1234567890"]
 type MessageRequest struct {
-	From                 string   `json:"from"`
-	To                   string   `json:"to"`
-	Text                 string   `json:"text"`
-	MediaURLs            []string `json:"media_urls"`
-	MessagingProfileID   string   `json:"messaging_profile_id"`
-	WebhookURL           string   `json:"webhook_url,omitempty"`
-	WebhookFailoverURL   string   `json:"webhook_failover_url,omitempty"`
-	UseProfileWebhooks   *bool    `json:"use_profile_webhooks,omitempty"`
-	// Additional optional fields that Telnyx accepts but we don't use
-	// These are included for API compatibility
+	From               string   `json:"from"`
+	To                 string   `json:"-"` // Handled by custom unmarshal
+	ToRaw              any      `json:"to"`
+	Text               string   `json:"text"`
+	MediaURLs          []string `json:"media_urls"`
+	MessagingProfileID string   `json:"messaging_profile_id"`
+	WebhookURL         string   `json:"webhook_url,omitempty"`
+	WebhookFailoverURL string   `json:"webhook_failover_url,omitempty"`
+	UseProfileWebhooks *bool    `json:"use_profile_webhooks,omitempty"`
+	// Additional optional Telnyx fields for API compatibility
+	Type           string `json:"type,omitempty"`            // "SMS" or "MMS"
+	Subject        string `json:"subject,omitempty"`         // MMS subject
+	AutoDetect     *bool  `json:"auto_detect,omitempty"`     // Auto-detect encoding
+}
+
+// NormalizeTo extracts the phone number from the To field
+// Telnyx accepts "to" as a string OR an array of strings
+func (m *MessageRequest) NormalizeTo() string {
+	if m.To != "" {
+		return m.To
+	}
+
+	if m.ToRaw == nil {
+		return ""
+	}
+
+	// Handle string
+	if s, ok := m.ToRaw.(string); ok {
+		m.To = s
+		return s
+	}
+
+	// Handle array of strings
+	if arr, ok := m.ToRaw.([]interface{}); ok && len(arr) > 0 {
+		if s, ok := arr[0].(string); ok {
+			m.To = s
+			return s
+		}
+	}
+
+	return ""
 }
 
 // WriteError writes a Telnyx-formatted error response
 func WriteError(w http.ResponseWriter, code, title, detail string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	response := TelnyxErrorResponse{
 		Errors: []TelnyxError{
 			{
@@ -48,7 +80,7 @@ func WriteError(w http.ResponseWriter, code, title, detail string, statusCode in
 			},
 		},
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -95,8 +127,9 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 		}
 	}
 
-	// Validate 'to' field
-	if req.To == "" {
+	// Normalize and validate 'to' field (handles string or array)
+	to := req.NormalizeTo()
+	if to == "" {
 		return http.StatusUnprocessableEntity, &TelnyxErrorResponse{
 			Errors: []TelnyxError{
 				{
@@ -133,10 +166,6 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 			},
 		}
 	}
-
-	// Type check: ensure 'to' and 'from' are strings (they should be from JSON unmarshaling)
-	// If they're not strings, JSON unmarshaling would have failed already
-	// But we can add explicit checks if needed
 
 	return 0, nil // Valid request
 }

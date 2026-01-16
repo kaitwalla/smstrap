@@ -33,6 +33,9 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get normalized 'to' value (handles both string and array formats)
+	to := req.NormalizeTo()
+
 	// Generate UUID for message ID
 	messageID := uuid.New().String()
 
@@ -42,29 +45,59 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 		mediaURLs = []string{}
 	}
 
+	// Determine message type
+	msgType := "SMS"
+	if len(mediaURLs) > 0 {
+		msgType = "MMS"
+	}
+
 	// Insert into database
-	if err := database.InsertMessage(messageID, req.From, req.To, req.Text, mediaURLs, req.MessagingProfileID, "outbound"); err != nil {
+	if err := database.InsertMessage(messageID, req.From, to, req.Text, mediaURLs, req.MessagingProfileID, "outbound"); err != nil {
 		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
+	now := time.Now().UTC()
+
 	// Return Telnyx success response format
 	// Include all standard Telnyx response fields for API compatibility
+	// The 'to' field in responses is an array of recipient objects
 	data := map[string]interface{}{
-		"id":                  messageID,
-		"record_type":         "message",
-		"from":                req.From,
-		"to":                  req.To,
-		"text":                req.Text,
-		"media_urls":          mediaURLs,
+		"id":                   messageID,
+		"record_type":          "message",
+		"direction":            "outbound",
 		"messaging_profile_id": req.MessagingProfileID,
-		"direction":           "outbound",
-		"status":              "queued", // Telnyx typically returns "queued" for new messages
-		"created_at":          time.Now().UTC().Format(time.RFC3339),
-		"updated_at":          time.Now().UTC().Format(time.RFC3339),
+		"from": map[string]interface{}{
+			"phone_number": req.From,
+			"carrier":      "",
+			"line_type":    "",
+		},
+		"to": []map[string]interface{}{
+			{
+				"phone_number": to,
+				"status":       "queued",
+				"carrier":      "",
+				"line_type":    "",
+			},
+		},
+		"text":       req.Text,
+		"media":      mediaURLs, // Telnyx uses 'media' in responses
+		"type":       msgType,
+		"valid_until": now.Add(24 * time.Hour).Format(time.RFC3339),
+		"webhook_url":          "",
+		"webhook_failover_url": "",
+		"encoding":             "GSM-7",
+		"parts":                1,
+		"tags":                 []string{},
+		"cost":                 nil,
+		"received_at":          nil,
+		"sent_at":              nil,
+		"completed_at":         nil,
+		"created_at":           now.Format(time.RFC3339),
+		"updated_at":           now.Format(time.RFC3339),
 	}
-	
-	// Include webhook URLs only if provided in request (Telnyx omits empty fields)
+
+	// Include webhook URLs if provided in request
 	if req.WebhookURL != "" {
 		data["webhook_url"] = req.WebhookURL
 	}
@@ -74,7 +107,7 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	if req.UseProfileWebhooks != nil {
 		data["use_profile_webhooks"] = *req.UseProfileWebhooks
 	}
-	
+
 	response := map[string]interface{}{
 		"data": data,
 	}
@@ -236,8 +269,11 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normalize 'to' field (handles string or array)
+	to := simpleReq.NormalizeTo()
+
 	// Validate required fields
-	if simpleReq.From == "" || simpleReq.To == "" {
+	if simpleReq.From == "" || to == "" {
 		http.Error(w, "from and to are required", http.StatusBadRequest)
 		return
 	}
@@ -249,7 +285,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	if mediaURLs == nil {
 		mediaURLs = []string{}
 	}
-	if err := database.InsertMessage(messageID, simpleReq.From, simpleReq.To, simpleReq.Text, mediaURLs, messagingProfileID, "inbound"); err != nil {
+	if err := database.InsertMessage(messageID, simpleReq.From, to, simpleReq.Text, mediaURLs, messagingProfileID, "inbound"); err != nil {
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
 	}

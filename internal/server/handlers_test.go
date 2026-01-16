@@ -62,23 +62,40 @@ func TestHandleCreateMessage_Success(t *testing.T) {
 	if data["record_type"] != "message" {
 		t.Errorf("Expected record_type 'message', got '%v'", data["record_type"])
 	}
-	if data["status"] != "queued" {
-		t.Errorf("Expected status 'queued', got '%v'", data["status"])
-	}
 	if data["direction"] != "outbound" {
 		t.Errorf("Expected direction 'outbound', got '%v'", data["direction"])
 	}
-	if data["from"] != "+1234567890" {
-		t.Errorf("Expected from '+1234567890', got '%v'", data["from"])
+	
+	// Check 'from' is now an object with phone_number
+	fromObj, ok := data["from"].(map[string]interface{})
+	if !ok {
+		t.Error("Expected 'from' to be an object")
+	} else if fromObj["phone_number"] != "+1234567890" {
+		t.Errorf("Expected from.phone_number '+1234567890', got '%v'", fromObj["phone_number"])
 	}
-	if data["to"] != "+0987654321" {
-		t.Errorf("Expected to '+0987654321', got '%v'", data["to"])
+	
+	// Check 'to' is now an array of recipient objects
+	toArr, ok := data["to"].([]interface{})
+	if !ok || len(toArr) == 0 {
+		t.Error("Expected 'to' to be an array with at least one recipient")
+	} else {
+		toObj := toArr[0].(map[string]interface{})
+		if toObj["phone_number"] != "+0987654321" {
+			t.Errorf("Expected to[0].phone_number '+0987654321', got '%v'", toObj["phone_number"])
+		}
+		if toObj["status"] != "queued" {
+			t.Errorf("Expected to[0].status 'queued', got '%v'", toObj["status"])
+		}
 	}
+	
 	if data["text"] != "Test message" {
 		t.Errorf("Expected text 'Test message', got '%v'", data["text"])
 	}
 	if data["messaging_profile_id"] != "profile-123" {
 		t.Errorf("Expected messaging_profile_id 'profile-123', got '%v'", data["messaging_profile_id"])
+	}
+	if data["type"] != "SMS" {
+		t.Errorf("Expected type 'SMS', got '%v'", data["type"])
 	}
 }
 
@@ -122,6 +139,74 @@ func TestHandleCreateMessage_WithOptionalFields(t *testing.T) {
 	}
 	if data["use_profile_webhooks"] != true {
 		t.Errorf("Expected use_profile_webhooks true, got '%v'", data["use_profile_webhooks"])
+	}
+}
+
+func TestHandleCreateMessage_ToAsArray(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Telnyx PHP SDK may send 'to' as an array
+	body := map[string]interface{}{
+		"from":                 "+1234567890",
+		"to":                   []string{"+0987654321"},
+		"text":                 "Test message",
+		"messaging_profile_id": "profile-123",
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/messages", bytes.NewReader(bodyBytes))
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	HandleCreateMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(rr.Body.Bytes(), &response)
+
+	data := response["data"].(map[string]interface{})
+	toArr := data["to"].([]interface{})
+	toObj := toArr[0].(map[string]interface{})
+	if toObj["phone_number"] != "+0987654321" {
+		t.Errorf("Expected to[0].phone_number '+0987654321', got '%v'", toObj["phone_number"])
+	}
+}
+
+func TestHandleCreateMessage_MMS(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	body := map[string]interface{}{
+		"from":                 "+1234567890",
+		"to":                   "+0987654321",
+		"text":                 "Check out this image",
+		"media_urls":           []string{"https://example.com/image.jpg"},
+		"messaging_profile_id": "profile-123",
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/messages", bytes.NewReader(bodyBytes))
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	HandleCreateMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(rr.Body.Bytes(), &response)
+
+	data := response["data"].(map[string]interface{})
+	if data["type"] != "MMS" {
+		t.Errorf("Expected type 'MMS' for message with media, got '%v'", data["type"])
 	}
 }
 
