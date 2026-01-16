@@ -54,18 +54,25 @@ jobs:
         run: |
           cd release
           if [ "${{ matrix.goos }}" == "windows" ]; then
-            zip SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.zip ${{ matrix.binary_name }}
+            ARCHIVE_NAME="SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
+            zip "$ARCHIVE_NAME" ${{ matrix.binary_name }}
+            mv "$ARCHIVE_NAME" ..
             rm ${{ matrix.binary_name }}
           else
-            tar czf SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ${{ matrix.binary_name }}
+            ARCHIVE_NAME="SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
+            tar czf "$ARCHIVE_NAME" ${{ matrix.binary_name }}
+            mv "$ARCHIVE_NAME" ..
             rm ${{ matrix.binary_name }}
           fi
+          cd ..
+          rmdir release
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: SmsSink-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: release/
+          path: ${{ env.ARCHIVE_NAME }}
 
   upload-release:
     name: Upload to release
@@ -84,7 +91,30 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-assets/ \;
+          # Copy archives from artifact directories, ensuring one file per platform
+          for dir in artifacts/SmsSink-*; do
+            if [ -d "$dir" ]; then
+              echo "Processing artifact directory: $dir"
+              # Find the archive file (should be exactly one)
+              ARCHIVE=$(find "$dir" -type f \( -name "*.tar.gz" -o -name "*.zip" \) | head -1)
+              if [ -n "$ARCHIVE" ]; then
+                FILENAME=$(basename "$ARCHIVE")
+                echo "Found archive: $ARCHIVE -> $FILENAME"
+                # Only copy if we don't already have this filename (prevent duplicates)
+                if [ ! -f "release-assets/$FILENAME" ]; then
+                  cp "$ARCHIVE" "release-assets/$FILENAME"
+                  echo "Copied: $FILENAME"
+                else
+                  echo "Skipping duplicate: $FILENAME"
+                fi
+              fi
+            fi
+          done
+          echo ""
+          echo "Release assets prepared:"
+          ls -lh release-assets/
+          echo ""
+          echo "File count: $(ls -1 release-assets/ | wc -l) files"
 
       - name: Upload to release
         uses: softprops/action-gh-release@v1
