@@ -136,10 +136,24 @@ func TestSendStatusCallbacks_FailoverURL(t *testing.T) {
 }
 
 func TestWebhookPayloadStructure(t *testing.T) {
+	var mu sync.Mutex
 	var receivedPayload TelnyxWebhookPayload
+	received := make(chan struct{}, 1)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&receivedPayload)
+		var payload TelnyxWebhookPayload
+		json.NewDecoder(r.Body).Decode(&payload)
+		
+		mu.Lock()
+		receivedPayload = payload
+		mu.Unlock()
+		
+		// Signal that we received the first webhook
+		select {
+		case received <- struct{}{}:
+		default:
+		}
+		
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -157,33 +171,45 @@ func TestWebhookPayloadStructure(t *testing.T) {
 
 	SendStatusCallbacks(msg)
 
-	// Wait for first webhook
-	time.Sleep(1 * time.Second)
+	// Wait for first webhook with timeout
+	select {
+	case <-received:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Timeout waiting for webhook")
+	}
+
+	// Give a small buffer for the handler to finish
+	time.Sleep(50 * time.Millisecond)
+
+	// Read with lock
+	mu.Lock()
+	payload := receivedPayload
+	mu.Unlock()
 
 	// Validate payload structure
-	if receivedPayload.Data.RecordType != "event" {
-		t.Errorf("Expected record_type 'event', got '%s'", receivedPayload.Data.RecordType)
+	if payload.Data.RecordType != "event" {
+		t.Errorf("Expected record_type 'event', got '%s'", payload.Data.RecordType)
 	}
 
-	if receivedPayload.Data.EventType != "message.sent" {
-		t.Errorf("Expected first event 'message.sent', got '%s'", receivedPayload.Data.EventType)
+	if payload.Data.EventType != "message.sent" {
+		t.Errorf("Expected first event 'message.sent', got '%s'", payload.Data.EventType)
 	}
 
-	payload := receivedPayload.Data.Payload
-	if payload["id"] != "msg-abc-123" {
-		t.Errorf("Expected message id 'msg-abc-123', got '%v'", payload["id"])
+	data := payload.Data.Payload
+	if data["id"] != "msg-abc-123" {
+		t.Errorf("Expected message id 'msg-abc-123', got '%v'", data["id"])
 	}
 
-	if payload["type"] != "MMS" {
-		t.Errorf("Expected type 'MMS', got '%v'", payload["type"])
+	if data["type"] != "MMS" {
+		t.Errorf("Expected type 'MMS', got '%v'", data["type"])
 	}
 
-	if payload["text"] != "Hello, World!" {
-		t.Errorf("Expected text 'Hello, World!', got '%v'", payload["text"])
+	if data["text"] != "Hello, World!" {
+		t.Errorf("Expected text 'Hello, World!', got '%v'", data["text"])
 	}
 
 	// Check 'from' structure
-	from, ok := payload["from"].(map[string]interface{})
+	from, ok := data["from"].(map[string]interface{})
 	if !ok {
 		t.Error("Expected 'from' to be an object")
 	} else if from["phone_number"] != "+15551234567" {
@@ -191,7 +217,7 @@ func TestWebhookPayloadStructure(t *testing.T) {
 	}
 
 	// Check 'to' structure (JSON unmarshals to []interface{})
-	toArr, ok := payload["to"].([]interface{})
+	toArr, ok := data["to"].([]interface{})
 	if !ok || len(toArr) == 0 {
 		t.Error("Expected 'to' to be an array with at least one element")
 	} else {
