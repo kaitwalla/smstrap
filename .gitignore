@@ -4,6 +4,7 @@ smssink.db
 # Binary
 SmsSink
 SmsSink.exe
+telnyx-mock
 
 # Test databases
 *.db
