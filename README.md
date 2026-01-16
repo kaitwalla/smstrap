@@ -11,7 +11,7 @@ A robust, single-binary Telnyx Messaging API mock server for local development a
 - **Web UI**: Beautiful dashboard to view, filter, and manage message history
 - **Webhook Support**: Endpoint to receive inbound messages (Telnyx webhook format)
 - **Single Binary**: No external dependencies, pure Go implementation with embedded assets
-- **Dual Server**: API server (port 8080) and UI server (port 8081)
+- **Dual Server**: API server (port 23456) and UI server (port 23457)
 
 ## Building
 
@@ -48,8 +48,8 @@ The binary is statically linked and requires no external dependencies (CGO_ENABL
 ```
 
 The server will start two services:
-- **API Server**: `http://localhost:8080` - Mock Telnyx API endpoint
-- **Web UI**: `http://localhost:8081` - Message inspector dashboard
+- **API Server**: `http://localhost:23456` - Mock Telnyx API endpoint
+- **Web UI**: `http://localhost:23457` - Message inspector dashboard
 
 A SQLite database file (`telnyx_mock.db`) will be created automatically in the current directory.
 
@@ -61,12 +61,12 @@ A SQLite database file (`telnyx_mock.db`) will be created automatically in the c
    ```
 
 2. **Configure API credentials**:
-   - Open `http://localhost:8081/credentials`
+   - Open `http://localhost:23457/credentials`
    - Set your API key (default: `test-token`)
 
 3. **Send a test message**:
    ```bash
-   curl -X POST http://localhost:8080/v2/messages \
+   curl -X POST http://localhost:23456/v2/messages \
      -H "Authorization: Bearer test-token" \
      -H "Content-Type: application/json" \
      -d '{
@@ -77,7 +77,7 @@ A SQLite database file (`telnyx_mock.db`) will be created automatically in the c
    ```
 
 4. **View messages**:
-   - Open `http://localhost:8081` to see all messages
+   - Open `http://localhost:23457` to see all messages
 
 ## API Endpoints
 
@@ -250,7 +250,7 @@ Serves the credentials management page.
 ### Send an outbound message:
 
 ```bash
-curl -X POST http://localhost:8080/v2/messages \
+curl -X POST http://localhost:23456/v2/messages \
   -H "Authorization: Bearer test-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -263,7 +263,7 @@ curl -X POST http://localhost:8080/v2/messages \
 ### Receive an inbound message (webhook):
 
 ```bash
-curl -X POST http://localhost:8080/v2/webhooks/messages \
+curl -X POST http://localhost:23456/v2/webhooks/messages \
   -H "Content-Type: application/json" \
   -d '{
     "from": "+0987654321",
@@ -275,7 +275,7 @@ curl -X POST http://localhost:8080/v2/webhooks/messages \
 ### Test validation (missing 'to' field):
 
 ```bash
-curl -X POST http://localhost:8080/v2/messages \
+curl -X POST http://localhost:23456/v2/messages \
   -H "Authorization: Bearer test-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -289,7 +289,7 @@ Expected response: `422 Unprocessable Entity` with error details.
 ### Test invalid API key:
 
 ```bash
-curl -X POST http://localhost:8080/v2/messages \
+curl -X POST http://localhost:23456/v2/messages \
   -H "Authorization: Bearer wrong-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -305,7 +305,7 @@ Expected response: `401 Unauthorized` with error details.
 
 ### Message Inspector Dashboard
 
-- **Real-time Updates**: Auto-refreshes every 2 seconds
+- **Real-time Updates**: Auto-refreshes every 10 seconds (configurable)
 - **Direction Filtering**: Visual distinction between inbound (blue) and outbound (green) messages
 - **Message Details**: View timestamp, direction, sender, recipient, content, and media URLs
 - **Clear Messages**: Delete all messages with one click
@@ -385,8 +385,8 @@ SmsSink/
 
 ### Default Settings
 
-- **API Server Port**: 8080
-- **UI Server Port**: 8081
+- **API Server Port**: 23456
+- **UI Server Port**: 23457
 - **Database File**: `telnyx_mock.db` (created in current directory)
 - **Default API Key**: `test-token`
 
