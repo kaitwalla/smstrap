@@ -10,6 +10,7 @@ A robust, single-binary Telnyx Messaging API mock server for local development a
 - **SQLite Persistence**: All messages are stored in a local SQLite database
 - **Web UI**: Beautiful dashboard to view, filter, and manage message history
 - **Webhook Support**: Endpoint to receive inbound messages (Telnyx webhook format)
+- **Status Callbacks**: Automatic delivery status webhooks (message.sent, message.delivered) when webhook_url is provided
 - **Single Binary**: No external dependencies, pure Go implementation with embedded assets
 - **Dual Server**: API server (port 23456) and UI server (port 23457)
 
@@ -186,6 +187,71 @@ Receive inbound messages (webhook endpoint). Supports both Telnyx webhook format
   }
 }
 ```
+
+## Status Callbacks (Outbound Webhooks)
+
+When you send a message with a `webhook_url` in the request, SmsSink will automatically send status callbacks to that URL, simulating Telnyx's delivery notifications.
+
+**Status Sequence:**
+1. `message.sent` - Sent ~500ms after message creation
+2. `message.delivered` - Sent ~1.5s after message creation
+
+**Example Request with Webhook:**
+```bash
+curl -X POST http://localhost:23456/v2/messages \
+  -H "Authorization: Bearer test-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "+1234567890",
+    "to": "+0987654321",
+    "text": "Hello!",
+    "messaging_profile_id": "profile-123",
+    "webhook_url": "https://your-app.com/webhooks/telnyx",
+    "webhook_failover_url": "https://your-app.com/webhooks/telnyx-backup"
+  }'
+```
+
+**Webhook Payload Format:**
+```json
+{
+  "data": {
+    "event_type": "message.delivered",
+    "id": "event-uuid",
+    "occurred_at": "2024-01-01T12:00:00Z",
+    "record_type": "event",
+    "payload": {
+      "id": "message-uuid",
+      "direction": "outbound",
+      "messaging_profile_id": "profile-123",
+      "from": {
+        "phone_number": "+1234567890",
+        "carrier": "SmsSink Mock Carrier",
+        "line_type": "Wireless"
+      },
+      "to": [{
+        "phone_number": "+0987654321",
+        "status": "delivered",
+        "carrier": "SmsSink Mock Carrier",
+        "line_type": "Wireless"
+      }],
+      "text": "Hello!",
+      "type": "SMS",
+      "status": "delivered",
+      "sent_at": "2024-01-01T12:00:00Z",
+      "completed_at": "2024-01-01T12:00:01Z"
+    }
+  }
+}
+```
+
+**Webhook Headers:**
+- `Content-Type: application/json`
+- `User-Agent: SmsSink/1.0`
+- `telnyx-timestamp: <RFC3339 timestamp>`
+- `telnyx-signature-ed25519: mock-signature` (placeholder - not cryptographically valid)
+
+**Failover Behavior:**
+If the primary `webhook_url` returns a non-2xx status, SmsSink will automatically try the `webhook_failover_url` if provided.
 
 ## Web UI Endpoints
 

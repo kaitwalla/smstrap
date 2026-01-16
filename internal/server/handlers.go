@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"telnyx-mock/internal/database"
 	"telnyx-mock/internal/validator"
+	"telnyx-mock/internal/webhook"
 )
 
 // HandleCreateMessage handles POST /v2/messages
@@ -115,6 +116,21 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+
+	// Send status callbacks asynchronously if webhook URL is provided
+	if req.WebhookURL != "" {
+		webhook.SendStatusCallbacks(webhook.MessageDetails{
+			ID:                 messageID,
+			From:               req.From,
+			To:                 to,
+			Text:               req.Text,
+			MediaURLs:          mediaURLs,
+			MessagingProfileID: req.MessagingProfileID,
+			Type:               msgType,
+			WebhookURL:         req.WebhookURL,
+			WebhookFailoverURL: req.WebhookFailoverURL,
+		})
+	}
 }
 
 // HandleListMessages handles GET /api/messages
