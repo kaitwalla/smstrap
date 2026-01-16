@@ -21,7 +21,7 @@ var uiAssets embed.FS
 
 func main() {
 	// Initialize database
-	dbPath := "telnyx_mock.db"
+	dbPath := "smssink.db"
 	if err := database.InitDB(dbPath); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

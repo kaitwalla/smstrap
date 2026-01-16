@@ -51,7 +51,7 @@ The server will start two services:
 - **API Server**: `http://localhost:23456` - Mock Telnyx API endpoint
 - **Web UI**: `http://localhost:23457` - Message inspector dashboard
 
-A SQLite database file (`telnyx_mock.db`) will be created automatically in the current directory.
+A SQLite database file (`smssink.db`) will be created automatically in the current directory.
 
 ## Quick Start
 
@@ -402,7 +402,7 @@ SmsSink/
 
 - **API Server Port**: 23456
 - **UI Server Port**: 23457
-- **Database File**: `telnyx_mock.db` (created in current directory)
+- **Database File**: `smssink.db` (created in current directory)
 - **Default API Key**: `test-token`
 
 ### Environment Variables
