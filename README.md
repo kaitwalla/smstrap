@@ -72,7 +72,8 @@ A SQLite database file (`telnyx_mock.db`) will be created automatically in the c
      -d '{
        "from": "+1234567890",
        "to": "+0987654321",
-       "text": "Hello from SmsSink!"
+       "text": "Hello from SmsSink!",
+       "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
      }'
    ```
 
@@ -95,13 +96,15 @@ Send an outbound message through the mock API.
   "from": "+1234567890",
   "to": "+0987654321",
   "text": "Hello, world!",
-  "media_urls": ["https://example.com/image.jpg"]
+  "media_urls": ["https://example.com/image.jpg"],
+  "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
 
 **Validation Rules:**
 - `from`: Required (string)
 - `to`: Required (string)
+- `messaging_profile_id`: Required (string)
 - `text` OR `media_urls`: At least one must be present
 - `Authorization` header must match configured API key
 
@@ -110,16 +113,24 @@ Send an outbound message through the mock API.
 {
   "data": {
     "id": "uuid-here",
+    "record_type": "message",
     "from": "+1234567890",
     "to": "+0987654321",
     "text": "Hello, world!",
     "media_urls": [],
+    "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "direction": "outbound",
+    "status": "queued",
     "created_at": "2024-01-01T12:00:00Z",
     "updated_at": "2024-01-01T12:00:00Z"
   }
 }
 ```
+
+**Optional Request Fields:**
+- `webhook_url` (string) - Custom webhook URL for status updates
+- `webhook_failover_url` (string) - Fallback webhook URL
+- `use_profile_webhooks` (boolean) - Use messaging profile webhook settings
 
 **Error Response (422 Unprocessable Entity):**
 ```json
@@ -256,7 +267,8 @@ curl -X POST http://localhost:23456/v2/messages \
   -d '{
     "from": "+1234567890",
     "to": "+0987654321",
-    "text": "Hello from SmsSink!"
+    "text": "Hello from SmsSink!",
+    "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   }'
 ```
 
@@ -280,7 +292,8 @@ curl -X POST http://localhost:23456/v2/messages \
   -H "Content-Type: application/json" \
   -d '{
     "from": "+1234567890",
-    "text": "This should fail"
+    "text": "This should fail",
+    "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   }'
 ```
 
@@ -295,7 +308,8 @@ curl -X POST http://localhost:23456/v2/messages \
   -d '{
     "from": "+1234567890",
     "to": "+0987654321",
-    "text": "This should fail"
+    "text": "This should fail",
+    "messaging_profile_id": "400017d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   }'
 ```
 
@@ -332,6 +346,7 @@ CREATE TABLE messages (
     recipient TEXT NOT NULL,
     content TEXT,
     media_urls TEXT,
+    messaging_profile_id TEXT,
     direction TEXT NOT NULL
 );
 ```

@@ -20,11 +20,18 @@ type TelnyxErrorResponse struct {
 }
 
 // MessageRequest represents the incoming message request payload
+// Matches Telnyx API v2/messages request format
 type MessageRequest struct {
-	From      string   `json:"from"`
-	To        string   `json:"to"`
-	Text      string   `json:"text"`
-	MediaURLs []string `json:"media_urls"`
+	From                 string   `json:"from"`
+	To                   string   `json:"to"`
+	Text                 string   `json:"text"`
+	MediaURLs            []string `json:"media_urls"`
+	MessagingProfileID   string   `json:"messaging_profile_id"`
+	WebhookURL           string   `json:"webhook_url,omitempty"`
+	WebhookFailoverURL   string   `json:"webhook_failover_url,omitempty"`
+	UseProfileWebhooks   *bool    `json:"use_profile_webhooks,omitempty"`
+	// Additional optional fields that Telnyx accepts but we don't use
+	// These are included for API compatibility
 }
 
 // WriteError writes a Telnyx-formatted error response
@@ -96,6 +103,19 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 					Code:   "10005",
 					Title:  "Invalid parameter",
 					Detail: "The 'to' parameter is required.",
+				},
+			},
+		}
+	}
+
+	// Validate 'messaging_profile_id' field
+	if req.MessagingProfileID == "" {
+		return http.StatusUnprocessableEntity, &TelnyxErrorResponse{
+			Errors: []TelnyxError{
+				{
+					Code:   "10005",
+					Title:  "Invalid parameter",
+					Detail: "The 'messaging_profile_id' parameter is required.",
 				},
 			},
 		}

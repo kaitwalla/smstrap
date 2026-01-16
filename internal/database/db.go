@@ -10,13 +10,14 @@ import (
 )
 
 type Message struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	Sender    string    `json:"sender"`
-	Recipient string    `json:"recipient"`
-	Content   string    `json:"content"`
-	MediaURLs string    `json:"media_urls"` // Stored as JSON string
-	Direction string    `json:"direction"`
+	ID                 string    `json:"id"`
+	CreatedAt          time.Time `json:"created_at"`
+	Sender             string    `json:"sender"`
+	Recipient          string    `json:"recipient"`
+	Content            string    `json:"content"`
+	MediaURLs          string    `json:"media_urls"` // Stored as JSON string
+	MessagingProfileID string    `json:"messaging_profile_id"`
+	Direction          string    `json:"direction"`
 }
 
 var DB *sql.DB
@@ -38,6 +39,7 @@ func InitDB(dbPath string) error {
 		recipient TEXT NOT NULL,
 		content TEXT,
 		media_urls TEXT,
+		messaging_profile_id TEXT,
 		direction TEXT NOT NULL
 	);
 	`
@@ -45,6 +47,18 @@ func InitDB(dbPath string) error {
 	_, err = DB.Exec(createTableSQL)
 	if err != nil {
 		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	// Add messaging_profile_id column if it doesn't exist (migration for existing databases)
+	// SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN, so we check first
+	var columnExists int
+	err = DB.QueryRow("SELECT COUNT(*) FROM pragma_table_info('messages') WHERE name='messaging_profile_id'").Scan(&columnExists)
+	if err == nil && columnExists == 0 {
+		_, err = DB.Exec("ALTER TABLE messages ADD COLUMN messaging_profile_id TEXT")
+		if err != nil {
+			// Ignore error if column already exists (race condition)
+			_ = err
+		}
 	}
 
 	// Create credentials table (single row for API key)
@@ -80,7 +94,7 @@ func InitDB(dbPath string) error {
 }
 
 // InsertMessage inserts a new message into the database
-func InsertMessage(id, sender, recipient, content string, mediaURLs []string, direction string) error {
+func InsertMessage(id, sender, recipient, content string, mediaURLs []string, messagingProfileID string, direction string) error {
 	mediaURLsJSON := "[]"
 	if len(mediaURLs) > 0 {
 		jsonBytes, err := json.Marshal(mediaURLs)
@@ -91,11 +105,11 @@ func InsertMessage(id, sender, recipient, content string, mediaURLs []string, di
 	}
 
 	query := `
-		INSERT INTO messages (id, created_at, sender, recipient, content, media_urls, direction)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO messages (id, created_at, sender, recipient, content, media_urls, messaging_profile_id, direction)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := DB.Exec(query, id, time.Now().UTC(), sender, recipient, content, mediaURLsJSON, direction)
+	_, err := DB.Exec(query, id, time.Now().UTC(), sender, recipient, content, mediaURLsJSON, messagingProfileID, direction)
 	if err != nil {
 		return fmt.Errorf("failed to insert message: %w", err)
 	}
@@ -106,7 +120,7 @@ func InsertMessage(id, sender, recipient, content string, mediaURLs []string, di
 // GetAllMessages retrieves all messages from the database, ordered by created_at DESC
 func GetAllMessages() ([]Message, error) {
 	query := `
-		SELECT id, created_at, sender, recipient, content, media_urls, direction
+		SELECT id, created_at, sender, recipient, content, media_urls, messaging_profile_id, direction
 		FROM messages
 		ORDER BY created_at DESC
 	`
@@ -120,7 +134,7 @@ func GetAllMessages() ([]Message, error) {
 	messages := []Message{} // Initialize as empty slice, not nil, so JSON encodes as [] not null
 	for rows.Next() {
 		var msg Message
-		err := rows.Scan(&msg.ID, &msg.CreatedAt, &msg.Sender, &msg.Recipient, &msg.Content, &msg.MediaURLs, &msg.Direction)
+		err := rows.Scan(&msg.ID, &msg.CreatedAt, &msg.Sender, &msg.Recipient, &msg.Content, &msg.MediaURLs, &msg.MessagingProfileID, &msg.Direction)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}

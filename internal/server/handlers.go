@@ -43,23 +43,40 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert into database
-	if err := database.InsertMessage(messageID, req.From, req.To, req.Text, mediaURLs, "outbound"); err != nil {
+	if err := database.InsertMessage(messageID, req.From, req.To, req.Text, mediaURLs, req.MessagingProfileID, "outbound"); err != nil {
 		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
 	// Return Telnyx success response format
+	// Include all standard Telnyx response fields for API compatibility
+	data := map[string]interface{}{
+		"id":                  messageID,
+		"record_type":         "message",
+		"from":                req.From,
+		"to":                  req.To,
+		"text":                req.Text,
+		"media_urls":          mediaURLs,
+		"messaging_profile_id": req.MessagingProfileID,
+		"direction":           "outbound",
+		"status":              "queued", // Telnyx typically returns "queued" for new messages
+		"created_at":          time.Now().UTC().Format(time.RFC3339),
+		"updated_at":          time.Now().UTC().Format(time.RFC3339),
+	}
+	
+	// Include webhook URLs only if provided in request (Telnyx omits empty fields)
+	if req.WebhookURL != "" {
+		data["webhook_url"] = req.WebhookURL
+	}
+	if req.WebhookFailoverURL != "" {
+		data["webhook_failover_url"] = req.WebhookFailoverURL
+	}
+	if req.UseProfileWebhooks != nil {
+		data["use_profile_webhooks"] = *req.UseProfileWebhooks
+	}
+	
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"id":          messageID,
-			"from":        req.From,
-			"to":          req.To,
-			"text":        req.Text,
-			"media_urls":  mediaURLs,
-			"direction":   "outbound",
-			"created_at":  time.Now().UTC().Format(time.RFC3339),
-			"updated_at":  time.Now().UTC().Format(time.RFC3339),
-		},
+		"data": data,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -159,12 +176,13 @@ type InboundWebhookPayload struct {
 	Data struct {
 		EventType string `json:"event_type"`
 		Payload   struct {
-			ID        string   `json:"id"`
-			From      string   `json:"from"`
-			To        string   `json:"to"`
-			Text      string   `json:"text"`
-			MediaURLs []string `json:"media_urls"`
-			Direction string   `json:"direction"`
+			ID                 string   `json:"id"`
+			From               string   `json:"from"`
+			To                 string   `json:"to"`
+			Text               string   `json:"text"`
+			MediaURLs          []string `json:"media_urls"`
+			MessagingProfileID string   `json:"messaging_profile_id"`
+			Direction          string   `json:"direction"`
 		} `json:"payload"`
 	} `json:"data"`
 }
@@ -196,11 +214,12 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 		to := webhook.Data.Payload.To
 		text := webhook.Data.Payload.Text
 		mediaURLs := webhook.Data.Payload.MediaURLs
+		messagingProfileID := webhook.Data.Payload.MessagingProfileID
 		if mediaURLs == nil {
 			mediaURLs = []string{}
 		}
 
-		if err := database.InsertMessage(messageID, from, to, text, mediaURLs, "inbound"); err != nil {
+		if err := database.InsertMessage(messageID, from, to, text, mediaURLs, messagingProfileID, "inbound"); err != nil {
 			http.Error(w, "Failed to save message", http.StatusInternalServerError)
 			return
 		}
@@ -226,10 +245,11 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	// Use simple format
 	messageID := uuid.New().String()
 	mediaURLs := simpleReq.MediaURLs
+	messagingProfileID := simpleReq.MessagingProfileID
 	if mediaURLs == nil {
 		mediaURLs = []string{}
 	}
-	if err := database.InsertMessage(messageID, simpleReq.From, simpleReq.To, simpleReq.Text, mediaURLs, "inbound"); err != nil {
+	if err := database.InsertMessage(messageID, simpleReq.From, simpleReq.To, simpleReq.Text, mediaURLs, messagingProfileID, "inbound"); err != nil {
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
 	}
@@ -246,10 +266,11 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		From      string   `json:"from"`
-		To        string   `json:"to"`
-		Text      string   `json:"text"`
-		MediaURLs []string `json:"media_urls"`
+		From               string   `json:"from"`
+		To                 string   `json:"to"`
+		Text               string   `json:"text"`
+		MediaURLs          []string `json:"media_urls"`
+		MessagingProfileID string   `json:"messaging_profile_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -270,11 +291,12 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 
 	messageID := uuid.New().String()
 	mediaURLs := req.MediaURLs
+	messagingProfileID := req.MessagingProfileID
 	if mediaURLs == nil {
 		mediaURLs = []string{}
 	}
 
-	if err := database.InsertMessage(messageID, req.From, req.To, req.Text, mediaURLs, "inbound"); err != nil {
+	if err := database.InsertMessage(messageID, req.From, req.To, req.Text, mediaURLs, messagingProfileID, "inbound"); err != nil {
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
 	}
