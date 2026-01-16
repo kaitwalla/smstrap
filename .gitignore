@@ -1,0 +1,19 @@
+# Database
+smssink.db
+
+# Binary
+SmsSink
+SmsSink.exe
+
+# Test databases
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
