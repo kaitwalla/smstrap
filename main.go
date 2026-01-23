@@ -132,12 +132,25 @@ func main() {
 		w.Write(content)
 	})
 
+	// Serve the logs page
+	uiRouter.Get("/logs", func(w http.ResponseWriter, r *http.Request) {
+		htmlContent, err := uiAssets.ReadFile("internal/ui/assets/logs.html")
+		if err != nil {
+			http.Error(w, "Failed to load logs page", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(htmlContent)
+	})
+
 	// API endpoints for UI
 	uiRouter.Get("/api/messages", server.HandleListMessages)
 	uiRouter.Delete("/api/messages", server.HandleClearMessages)
 	uiRouter.Post("/api/messages/inbound", server.HandleSimulateInbound)
 	uiRouter.Get("/api/credentials", server.HandleGetCredentials)
 	uiRouter.Post("/api/credentials", server.HandleSetCredentials)
+	uiRouter.Get("/api/logs", server.HandleGetLogs)
+	uiRouter.Delete("/api/logs", server.HandleClearLogs)
 
 	uiServer := &http.Server{
 		Addr:    ":23457",
