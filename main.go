@@ -37,8 +37,11 @@ func main() {
 	apiRouter := chi.NewRouter()
 	apiRouter.Use(middleware.Logger)
 	apiRouter.Use(middleware.Recoverer)
+	// Support both /v2/... and /... routes for SDK compatibility
 	apiRouter.Post("/v2/messages", server.HandleCreateMessage)
+	apiRouter.Post("/messages", server.HandleCreateMessage)
 	apiRouter.Post("/v2/webhooks/messages", server.HandleInboundWebhook)
+	apiRouter.Post("/webhooks/messages", server.HandleInboundWebhook)
 
 	apiServer := &http.Server{
 		Addr:    ":23456",
