@@ -103,6 +103,10 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 
 	// Validate against stored credentials
 	if !database.ValidateCredential(authHeader) {
+		database.LogError("auth", "API key validation failed", map[string]interface{}{
+			"received_header": authHeader,
+			"ip":              r.RemoteAddr,
+		})
 		return http.StatusUnauthorized, &TelnyxErrorResponse{
 			Errors: []TelnyxError{
 				{

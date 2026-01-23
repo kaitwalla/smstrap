@@ -237,14 +237,14 @@ func ValidateCredential(authHeader string) bool {
 		return false
 	}
 	
-	// Support both "Bearer <token>" and just "<token>" formats
-	if authHeader == cred.APIKey {
-		return true
-	}
+	// Extract token from auth header
+	token := authHeader
 	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		return authHeader[7:] == cred.APIKey
+		token = authHeader[7:]
 	}
-	return false
+	
+	// Compare token with stored API key
+	return token == cred.APIKey
 }
 
 // CloseDB closes the database connection
