@@ -21,12 +21,13 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 
 	var req validator.MessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errMsg := err.Error()
 		database.LogError("message", "Invalid JSON payload in outbound message request", map[string]interface{}{
-			"error":      err.Error(),
+			"error":      errMsg,
 			"ip":         r.RemoteAddr,
 			"user_agent": r.UserAgent(),
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -325,11 +326,12 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	// Try simpler format
 	var simpleReq validator.MessageRequest
 	if err := json.Unmarshal(bodyBytes, &simpleReq); err != nil {
+		errMsg := err.Error()
 		database.LogError("webhook", "Invalid JSON payload in webhook", map[string]interface{}{
-			"error": err.Error(),
+			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -392,11 +394,12 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errMsg := err.Error()
 		database.LogError("message", "Invalid JSON payload in simulate inbound", map[string]interface{}{
-			"error": err.Error(),
+			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
