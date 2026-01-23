@@ -15,7 +15,7 @@ import (
 // HandleCreateMessage handles POST /v2/messages
 func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -163,13 +163,13 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 // HandleListMessages handles GET /api/messages
 func HandleListMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	messages, err := database.GetAllMessages()
 	if err != nil {
-		http.Error(w, "Failed to retrieve messages", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve messages.", http.StatusInternalServerError)
 		return
 	}
 
@@ -180,12 +180,12 @@ func HandleListMessages(w http.ResponseWriter, r *http.Request) {
 // HandleClearMessages handles DELETE /api/messages
 func HandleClearMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if err := database.ClearAllMessages(); err != nil {
-		http.Error(w, "Failed to clear messages", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to clear messages.", http.StatusInternalServerError)
 		return
 	}
 
@@ -196,13 +196,13 @@ func HandleClearMessages(w http.ResponseWriter, r *http.Request) {
 // HandleGetCredentials handles GET /api/credentials
 func HandleGetCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	cred, err := database.GetCredential()
 	if err != nil {
-		http.Error(w, "Failed to retrieve credentials", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve credentials.", http.StatusInternalServerError)
 		return
 	}
 
@@ -213,7 +213,7 @@ func HandleGetCredentials(w http.ResponseWriter, r *http.Request) {
 // HandleSetCredentials handles POST /api/credentials
 func HandleSetCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -222,23 +222,23 @@ func HandleSetCredentials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload.", http.StatusBadRequest)
 		return
 	}
 
 	if req.APIKey == "" {
-		http.Error(w, "api_key is required", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "The 'api_key' parameter is required.", http.StatusBadRequest)
 		return
 	}
 
 	if err := database.SetCredential(req.APIKey); err != nil {
-		http.Error(w, "Failed to save credentials", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save credentials.", http.StatusInternalServerError)
 		return
 	}
 
 	cred, err := database.GetCredential()
 	if err != nil {
-		http.Error(w, "Failed to retrieve updated credentials", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve updated credentials.", http.StatusInternalServerError)
 		return
 	}
 
@@ -266,7 +266,7 @@ type InboundWebhookPayload struct {
 // HandleInboundWebhook handles POST /v2/webhooks/messages (Telnyx webhook format)
 func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -277,7 +277,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"error": err.Error(),
 			"ip":    r.RemoteAddr,
 		})
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Failed to read request body.", http.StatusBadRequest)
 		return
 	}
 
@@ -306,7 +306,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 				"from":       from,
 				"to":         to,
 			})
-			http.Error(w, "Failed to save message", http.StatusInternalServerError)
+			validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
 			return
 		}
 
@@ -331,7 +331,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		http.Error(w, "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -345,7 +345,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"to":   to,
 			"ip":   r.RemoteAddr,
 		})
-		http.Error(w, "from and to are required", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "The 'from' and 'to' parameters are required.", http.StatusBadRequest)
 		return
 	}
 
@@ -363,7 +363,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"from":       simpleReq.From,
 			"to":         to,
 		})
-		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
@@ -381,7 +381,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 // HandleSimulateInbound handles POST /api/messages/inbound (for UI simulation)
 func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -399,7 +399,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		http.Error(w, "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -409,16 +409,16 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"from": req.From,
 			"to":   req.To,
 		})
-		http.Error(w, "from and to are required", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "The 'from' and 'to' parameters are required.", http.StatusBadRequest)
 		return
 	}
 
-	if req.Text == "" && (req.MediaURLs == nil || len(req.MediaURLs) == 0) {
+	if req.Text == "" && len(req.MediaURLs) == 0 {
 		database.LogError("message", "Missing text or media_urls in simulate inbound", map[string]interface{}{
 			"from": req.From,
 			"to":   req.To,
 		})
-		http.Error(w, "text or media_urls is required", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "Either 'text' or 'media_urls' parameter is required.", http.StatusBadRequest)
 		return
 	}
 
@@ -436,7 +436,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"from":       req.From,
 			"to":         req.To,
 		})
-		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
@@ -465,7 +465,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 // HandleGetLogs handles GET /api/logs
 func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -483,7 +483,7 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := database.GetLogs(level, category, limit)
 	if err != nil {
-		http.Error(w, "Failed to retrieve logs", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve logs.", http.StatusInternalServerError)
 		return
 	}
 
@@ -494,12 +494,12 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 // HandleClearLogs handles DELETE /api/logs
 func HandleClearLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if err := database.ClearAllLogs(); err != nil {
-		http.Error(w, "Failed to clear logs", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "Failed to clear logs.", http.StatusInternalServerError)
 		return
 	}
 
