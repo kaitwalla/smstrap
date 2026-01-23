@@ -27,7 +27,10 @@
             <div class="flex justify-between items-center mb-6">
                 <div class="flex items-center gap-3">
                     <img src="/logo.png" alt="SmsSink Logo" class="h-10 w-10 object-contain">
-                    <h1 class="text-3xl font-bold text-gray-800">SmsSink - Message Inspector</h1>
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800">SmsSink - Message Inspector</h1>
+                        <span id="versionBadge" class="text-xs text-gray-500"></span>
+                    </div>
                 </div>
                 <div class="flex gap-2">
                     <a 
@@ -351,7 +354,19 @@
         refreshRateInput.addEventListener('change', handleRefreshRateChange);
         refreshRateInput.addEventListener('blur', handleRefreshRateChange);
 
+        // Load version
+        async function loadVersion() {
+            try {
+                const response = await fetch('/api/version');
+                const data = await response.json();
+                document.getElementById('versionBadge').textContent = 'v' + data.version;
+            } catch (error) {
+                console.error('Failed to load version:', error);
+            }
+        }
+
         // Initial load and start auto-refresh
+        loadVersion();
         loadMessages();
         startAutoRefresh();
 

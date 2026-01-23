@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +16,9 @@ import (
 	"telnyx-mock/internal/database"
 	"telnyx-mock/internal/server"
 )
+
+// Version is the current version of SmsSink
+const Version = "1.1.0"
 
 //go:embed internal/ui/assets/*
 var uiAssets embed.FS
@@ -151,6 +155,10 @@ func main() {
 	uiRouter.Post("/api/credentials", server.HandleSetCredentials)
 	uiRouter.Get("/api/logs", server.HandleGetLogs)
 	uiRouter.Delete("/api/logs", server.HandleClearLogs)
+	uiRouter.Get("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"version": Version})
+	})
 
 	uiServer := &http.Server{
 		Addr:    ":23457",
@@ -173,7 +181,7 @@ func main() {
 		}
 	}()
 
-	log.Println("Telnyx Mock Server is running")
+	log.Printf("SmsSink v%s is running", Version)
 	log.Println("API endpoint: http://localhost:23456/v2/messages")
 	log.Println("Web UI: http://localhost:23457")
 
