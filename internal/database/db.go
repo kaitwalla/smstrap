@@ -120,6 +120,20 @@ func InitDB(dbPath string) error {
 		return fmt.Errorf("failed to create logs table: %w", err)
 	}
 
+	// Create settings table for app configuration
+	createSettingsSQL := `
+	CREATE TABLE IF NOT EXISTS settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at DATETIME NOT NULL
+	);
+	`
+
+	_, err = DB.Exec(createSettingsSQL)
+	if err != nil {
+		return fmt.Errorf("failed to create settings table: %w", err)
+	}
+
 	// Clean up logs older than 7 days on startup
 	if err := CleanupOldLogs(7); err != nil {
 		// Log the error but don't fail initialization
@@ -381,4 +395,41 @@ func ClearAllLogs() error {
 		return fmt.Errorf("failed to clear logs: %w", err)
 	}
 	return nil
+}
+
+// GetSetting retrieves a setting value by key
+func GetSetting(key string) (string, error) {
+	var value string
+	err := DB.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil // Return empty string if not set
+		}
+		return "", fmt.Errorf("failed to get setting: %w", err)
+	}
+	return value, nil
+}
+
+// SetSetting stores a setting value
+func SetSetting(key, value string) error {
+	query := `
+		INSERT INTO settings (key, value, updated_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = ?
+	`
+	now := time.Now().UTC()
+	_, err := DB.Exec(query, key, value, now, value, now)
+	if err != nil {
+		return fmt.Errorf("failed to set setting: %w", err)
+	}
+	return nil
+}
+
+// IsDebugMode returns whether debug mode is enabled
+func IsDebugMode() bool {
+	value, err := GetSetting("debug_mode")
+	if err != nil {
+		return false
+	}
+	return value == "true"
 }

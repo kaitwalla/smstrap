@@ -158,6 +158,8 @@ func main() {
 	uiRouter.Post("/api/credentials", server.HandleSetCredentials)
 	uiRouter.Get("/api/logs", server.HandleGetLogs)
 	uiRouter.Delete("/api/logs", server.HandleClearLogs)
+	uiRouter.Get("/api/settings", server.HandleGetSettings)
+	uiRouter.Post("/api/settings", server.HandleSetSettings)
 	uiRouter.Get("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"version": Version})

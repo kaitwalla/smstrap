@@ -13,8 +13,15 @@ import (
 	"telnyx-mock/internal/webhook"
 )
 
-// DebugMode enables verbose logging including raw request bodies
-var DebugMode = os.Getenv("SMSSINK_DEBUG") == "true"
+// isDebugMode checks if debug mode is enabled (env var or database setting)
+func isDebugMode() bool {
+	// Environment variable takes precedence
+	if os.Getenv("SMSSINK_DEBUG") == "true" {
+		return true
+	}
+	// Otherwise check database setting
+	return database.IsDebugMode()
+}
 
 // HandleCreateMessage handles POST /v2/messages
 func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +38,7 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log raw request body only in debug mode
-	if DebugMode {
+	if isDebugMode() {
 		database.Log("message", "Raw request body received", map[string]interface{}{
 			"body":       string(bodyBytes),
 			"ip":         r.RemoteAddr,
@@ -543,4 +550,61 @@ func parseLimit(s string) (int, error) {
 		limit = 1000
 	}
 	return limit, nil
+}
+
+// HandleGetSettings handles GET /api/settings
+func HandleGetSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	debugMode := database.IsDebugMode()
+
+	response := map[string]interface{}{
+		"debug_mode": debugMode,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// HandleSetSettings handles POST /api/settings
+func HandleSetSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		DebugMode *bool `json:"debug_mode"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Invalid JSON payload.", http.StatusBadRequest)
+		return
+	}
+
+	if req.DebugMode != nil {
+		value := "false"
+		if *req.DebugMode {
+			value = "true"
+		}
+		if err := database.SetSetting("debug_mode", value); err != nil {
+			validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save settings.", http.StatusInternalServerError)
+			return
+		}
+		database.Log("system", "Debug mode changed", map[string]interface{}{
+			"debug_mode": *req.DebugMode,
+		})
+	}
+
+	// Return updated settings
+	debugMode := database.IsDebugMode()
+	response := map[string]interface{}{
+		"debug_mode": debugMode,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

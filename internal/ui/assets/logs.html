@@ -120,6 +120,19 @@
                 <span id="lastUpdate" class="text-xs text-gray-400 ml-2"></span>
             </div>
 
+            <!-- Debug Mode Toggle -->
+            <div class="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-amber-800">Debug Mode</p>
+                    <p class="text-xs text-amber-600">When enabled, logs raw request bodies for debugging SDK issues.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="debugToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    <span id="debugStatus" class="ml-3 text-sm font-medium text-gray-700">Off</span>
+                </label>
+            </div>
+
             <!-- Info Banner -->
             <div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p class="text-sm text-blue-800">
@@ -315,8 +328,44 @@
             }
         }
 
+        // Debug mode toggle
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                const toggle = document.getElementById('debugToggle');
+                const status = document.getElementById('debugStatus');
+                toggle.checked = settings.debug_mode;
+                status.textContent = settings.debug_mode ? 'On' : 'Off';
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        async function toggleDebugMode(enabled) {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ debug_mode: enabled })
+                });
+                const settings = await response.json();
+                const status = document.getElementById('debugStatus');
+                status.textContent = settings.debug_mode ? 'On' : 'Off';
+            } catch (error) {
+                console.error('Failed to update settings:', error);
+                // Revert toggle on error
+                document.getElementById('debugToggle').checked = !enabled;
+            }
+        }
+
+        document.getElementById('debugToggle').addEventListener('change', (e) => {
+            toggleDebugMode(e.target.checked);
+        });
+
         // Initial load and start auto-refresh
         loadVersion();
+        loadSettings();
         loadLogs();
         startAutoRefresh();
 
