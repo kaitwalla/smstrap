@@ -37,14 +37,16 @@ func TestValidateMessageRequest_MissingFrom(t *testing.T) {
 
 	statusCode, errResp := ValidateMessageRequest(req, msgReq)
 
-	if statusCode != http.StatusUnprocessableEntity {
-		t.Errorf("Expected status %d, got %d", http.StatusUnprocessableEntity, statusCode)
+	// 'from' is now optional - should succeed and use a default
+	if statusCode != 0 {
+		t.Errorf("Expected status 0 (valid), got %d", statusCode)
 	}
-	if errResp == nil {
-		t.Error("Expected error response, got nil")
+	if errResp != nil {
+		t.Errorf("Expected no error response, got %+v", errResp)
 	}
-	if errResp != nil && errResp.Errors[0].Code != "10005" {
-		t.Errorf("Expected error code 10005, got %s", errResp.Errors[0].Code)
+	// Verify 'from' was populated with a default
+	if msgReq.From == "" {
+		t.Error("Expected 'from' to be populated with a default value")
 	}
 }
 

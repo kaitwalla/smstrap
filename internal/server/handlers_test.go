@@ -276,9 +276,9 @@ func TestHandleCreateMessage_MissingFrom(t *testing.T) {
 	defer cleanup()
 
 	body := map[string]interface{}{
-		"to":                    "+0987654321",
-		"text":                  "Test message",
-		"messaging_profile_id":  "profile-123",
+		"to":                   "+0987654321",
+		"text":                 "Test message",
+		"messaging_profile_id": "profile-123",
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -289,8 +289,19 @@ func TestHandleCreateMessage_MissingFrom(t *testing.T) {
 	rr := httptest.NewRecorder()
 	HandleCreateMessage(rr, req)
 
-	if rr.Code != http.StatusUnprocessableEntity {
-		t.Errorf("Expected status %d, got %d", http.StatusUnprocessableEntity, rr.Code)
+	// 'from' is now optional - should succeed with a default value
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(rr.Body.Bytes(), &response)
+
+	data := response["data"].(map[string]interface{})
+	fromObj := data["from"].(map[string]interface{})
+	// Verify 'from' was populated with a default based on profile
+	if fromObj["phone_number"] == "" {
+		t.Error("Expected 'from' to be populated with a default value")
 	}
 }
 

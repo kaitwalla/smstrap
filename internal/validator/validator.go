@@ -119,17 +119,10 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 		}
 	}
 
-	// Validate 'from' field
+	// 'from' is optional - Telnyx can infer it from the messaging profile
+	// If not provided, use a placeholder indicating it came from the profile
 	if req.From == "" {
-		return http.StatusUnprocessableEntity, &TelnyxErrorResponse{
-			Errors: []TelnyxError{
-				{
-					Code:   "10005",
-					Title:  "Invalid parameter",
-					Detail: "[SmsSink] The 'from' parameter is required.",
-				},
-			},
-		}
+		req.From = "(from:" + req.MessagingProfileID + ")"
 	}
 
 	// Normalize and validate 'to' field (handles string or array)
