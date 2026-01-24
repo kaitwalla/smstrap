@@ -105,6 +105,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 	if !database.ValidateCredential(authHeader) {
 		database.LogError("auth", "API key validation failed", map[string]interface{}{
 			"received_header": authHeader,
+			"expected_token":  database.GetExpectedToken(),
 			"ip":              r.RemoteAddr,
 		})
 		return http.StatusUnauthorized, &TelnyxErrorResponse{

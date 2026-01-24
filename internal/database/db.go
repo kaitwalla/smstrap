@@ -237,14 +237,30 @@ func ValidateCredential(authHeader string) bool {
 		return false
 	}
 	
-	// Extract token from auth header
+	// Extract token from auth header - support multiple formats
 	token := authHeader
+	
+	// Handle "Bearer <token>" format
 	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 		token = authHeader[7:]
 	}
 	
+	// Handle "Basic <token>" format (some SDKs use this)
+	if len(authHeader) > 6 && authHeader[:6] == "Basic " {
+		token = authHeader[6:]
+	}
+	
 	// Compare token with stored API key
 	return token == cred.APIKey
+}
+
+// GetExpectedToken returns the stored API key for debugging purposes
+func GetExpectedToken() string {
+	cred, err := GetCredential()
+	if err != nil {
+		return ""
+	}
+	return cred.APIKey
 }
 
 // CloseDB closes the database connection
