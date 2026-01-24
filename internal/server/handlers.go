@@ -15,19 +15,33 @@ import (
 // HandleCreateMessage handles POST /v2/messages
 func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Read body for logging
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Failed to read request body.", http.StatusBadRequest)
+		return
+	}
+
+	// Log raw request body for debugging
+	database.Log("message", "Raw request body received", map[string]interface{}{
+		"body":       string(bodyBytes),
+		"ip":         r.RemoteAddr,
+		"user_agent": r.UserAgent(),
+	})
+
 	var req validator.MessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		errMsg := err.Error()
 		database.LogError("message", "Invalid JSON payload in outbound message request", map[string]interface{}{
 			"error":      errMsg,
 			"ip":         r.RemoteAddr,
 			"user_agent": r.UserAgent(),
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -71,7 +85,7 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 			"from":  req.From,
 			"to":    to,
 		})
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
@@ -163,13 +177,13 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 // HandleListMessages handles GET /api/messages
 func HandleListMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	messages, err := database.GetAllMessages()
 	if err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve messages.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to retrieve messages.", http.StatusInternalServerError)
 		return
 	}
 
@@ -180,12 +194,12 @@ func HandleListMessages(w http.ResponseWriter, r *http.Request) {
 // HandleClearMessages handles DELETE /api/messages
 func HandleClearMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		validator.WriteError(w, "10003", "Method not allowed", "Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if err := database.ClearAllMessages(); err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to clear messages.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to clear messages.", http.StatusInternalServerError)
 		return
 	}
 
@@ -196,13 +210,13 @@ func HandleClearMessages(w http.ResponseWriter, r *http.Request) {
 // HandleGetCredentials handles GET /api/credentials
 func HandleGetCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	cred, err := database.GetCredential()
 	if err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve credentials.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to retrieve credentials.", http.StatusInternalServerError)
 		return
 	}
 
@@ -213,7 +227,7 @@ func HandleGetCredentials(w http.ResponseWriter, r *http.Request) {
 // HandleSetCredentials handles POST /api/credentials
 func HandleSetCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -222,23 +236,23 @@ func HandleSetCredentials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Invalid JSON payload.", http.StatusBadRequest)
 		return
 	}
 
 	if req.APIKey == "" {
-		validator.WriteError(w, "10005", "Invalid parameter", "The 'api_key' parameter is required.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] The 'api_key' parameter is required.", http.StatusBadRequest)
 		return
 	}
 
 	if err := database.SetCredential(req.APIKey); err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save credentials.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save credentials.", http.StatusInternalServerError)
 		return
 	}
 
 	cred, err := database.GetCredential()
 	if err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve updated credentials.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to retrieve updated credentials.", http.StatusInternalServerError)
 		return
 	}
 
@@ -266,7 +280,7 @@ type InboundWebhookPayload struct {
 // HandleInboundWebhook handles POST /v2/webhooks/messages (Telnyx webhook format)
 func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -277,7 +291,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"error": err.Error(),
 			"ip":    r.RemoteAddr,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Failed to read request body.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Failed to read request body.", http.StatusBadRequest)
 		return
 	}
 
@@ -306,7 +320,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 				"from":       from,
 				"to":         to,
 			})
-			validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
+			validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save message.", http.StatusInternalServerError)
 			return
 		}
 
@@ -331,7 +345,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -345,7 +359,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"to":   to,
 			"ip":   r.RemoteAddr,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "The 'from' and 'to' parameters are required.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] The 'from' and 'to' parameters are required.", http.StatusBadRequest)
 		return
 	}
 
@@ -363,7 +377,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 			"from":       simpleReq.From,
 			"to":         to,
 		})
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
@@ -381,7 +395,7 @@ func HandleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 // HandleSimulateInbound handles POST /api/messages/inbound (for UI simulation)
 func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		validator.WriteError(w, "10003", "Method not allowed", "Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only POST method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -399,7 +413,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"error": errMsg,
 			"ip":    r.RemoteAddr,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Invalid JSON payload: "+errMsg, http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Invalid JSON payload: "+errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -409,7 +423,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"from": req.From,
 			"to":   req.To,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "The 'from' and 'to' parameters are required.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] The 'from' and 'to' parameters are required.", http.StatusBadRequest)
 		return
 	}
 
@@ -418,7 +432,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"from": req.From,
 			"to":   req.To,
 		})
-		validator.WriteError(w, "10005", "Invalid parameter", "Either 'text' or 'media_urls' parameter is required.", http.StatusBadRequest)
+		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Either 'text' or 'media_urls' parameter is required.", http.StatusBadRequest)
 		return
 	}
 
@@ -436,7 +450,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 			"from":       req.From,
 			"to":         req.To,
 		})
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to save message.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to save message.", http.StatusInternalServerError)
 		return
 	}
 
@@ -465,7 +479,7 @@ func HandleSimulateInbound(w http.ResponseWriter, r *http.Request) {
 // HandleGetLogs handles GET /api/logs
 func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		validator.WriteError(w, "10003", "Method not allowed", "Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only GET method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -483,7 +497,7 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := database.GetLogs(level, category, limit)
 	if err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to retrieve logs.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to retrieve logs.", http.StatusInternalServerError)
 		return
 	}
 
@@ -494,12 +508,12 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request) {
 // HandleClearLogs handles DELETE /api/logs
 func HandleClearLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		validator.WriteError(w, "10003", "Method not allowed", "Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
+		validator.WriteError(w, "10003", "Method not allowed", "[SmsSink] Only DELETE method is supported for this endpoint.", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if err := database.ClearAllLogs(); err != nil {
-		validator.WriteError(w, "10000", "Internal Server Error", "Failed to clear logs.", http.StatusInternalServerError)
+		validator.WriteError(w, "10000", "Internal Server Error", "[SmsSink] Failed to clear logs.", http.StatusInternalServerError)
 		return
 	}
 

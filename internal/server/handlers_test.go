@@ -344,7 +344,7 @@ func TestHandleCreateMessage_MissingMessagingProfileID(t *testing.T) {
 
 	errors := response["errors"].([]interface{})
 	errObj := errors[0].(map[string]interface{})
-	if errObj["detail"] != "The 'messaging_profile_id' parameter is required." {
+	if errObj["detail"] != "[SmsSink] The 'messaging_profile_id' parameter is required." {
 		t.Errorf("Expected messaging_profile_id error, got '%v'", errObj["detail"])
 	}
 }

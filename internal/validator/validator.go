@@ -95,7 +95,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10001",
 					Title:  "Unauthorized",
-					Detail: "Authorization header is required.",
+					Detail: "[SmsSink] Authorization header is required.",
 				},
 			},
 		}
@@ -113,7 +113,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10001",
 					Title:  "Unauthorized",
-					Detail: "Invalid API key.",
+					Detail: "[SmsSink] Invalid API key.",
 				},
 			},
 		}
@@ -126,7 +126,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10005",
 					Title:  "Invalid parameter",
-					Detail: "The 'from' parameter is required.",
+					Detail: "[SmsSink] The 'from' parameter is required.",
 				},
 			},
 		}
@@ -140,7 +140,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10005",
 					Title:  "Invalid parameter",
-					Detail: "The 'to' parameter is required.",
+					Detail: "[SmsSink] The 'to' parameter is required.",
 				},
 			},
 		}
@@ -153,7 +153,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10005",
 					Title:  "Invalid parameter",
-					Detail: "The 'messaging_profile_id' parameter is required.",
+					Detail: "[SmsSink] The 'messaging_profile_id' parameter is required.",
 				},
 			},
 		}
@@ -166,7 +166,7 @@ func ValidateMessageRequest(r *http.Request, req *MessageRequest) (int, *TelnyxE
 				{
 					Code:   "10005",
 					Title:  "Invalid parameter",
-					Detail: "Either 'text' or 'media_urls' parameter is required.",
+					Detail: "[SmsSink] Either 'text' or 'media_urls' parameter is required.",
 				},
 			},
 		}

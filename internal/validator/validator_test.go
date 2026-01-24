@@ -93,7 +93,7 @@ func TestValidateMessageRequest_MissingMessagingProfileID(t *testing.T) {
 	if errResp == nil {
 		t.Error("Expected error response, got nil")
 	}
-	if errResp != nil && errResp.Errors[0].Detail != "The 'messaging_profile_id' parameter is required." {
+	if errResp != nil && errResp.Errors[0].Detail != "[SmsSink] The 'messaging_profile_id' parameter is required." {
 		t.Errorf("Unexpected error detail: %s", errResp.Errors[0].Detail)
 	}
 }
