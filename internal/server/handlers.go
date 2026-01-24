@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,9 @@ import (
 	"telnyx-mock/internal/webhook"
 )
 
+// DebugMode enables verbose logging including raw request bodies
+var DebugMode = os.Getenv("SMSSINK_DEBUG") == "true"
+
 // HandleCreateMessage handles POST /v2/messages
 func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -19,19 +23,21 @@ func HandleCreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read body for logging
+	// Read body for parsing
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		validator.WriteError(w, "10005", "Invalid parameter", "[SmsSink] Failed to read request body.", http.StatusBadRequest)
 		return
 	}
 
-	// Log raw request body for debugging
-	database.Log("message", "Raw request body received", map[string]interface{}{
-		"body":       string(bodyBytes),
-		"ip":         r.RemoteAddr,
-		"user_agent": r.UserAgent(),
-	})
+	// Log raw request body only in debug mode
+	if DebugMode {
+		database.Log("message", "Raw request body received", map[string]interface{}{
+			"body":       string(bodyBytes),
+			"ip":         r.RemoteAddr,
+			"user_agent": r.UserAgent(),
+		})
+	}
 
 	var req validator.MessageRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {

@@ -187,6 +187,9 @@ func main() {
 	log.Printf("SmsSink v%s is running", Version)
 	log.Println("API endpoint: http://localhost:23456/v2/messages")
 	log.Println("Web UI: http://localhost:23457")
+	if os.Getenv("SMSSINK_DEBUG") == "true" {
+		log.Println("Debug mode: ENABLED (raw request bodies will be logged)")
+	}
 
 	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
